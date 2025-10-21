@@ -487,7 +487,6 @@ jobs:
           "cpu": "512",
           "memory": "1024",
           "executionRoleArn": "arn:aws:iam::211125552276:role/ecsTaskExecutionRole",
-          "taskRoleArn": "arn:aws:iam::211125552276:role/ecsTaskRole",
           "containerDefinitions": [
             {
               "name": "devopscanvas-finops",
@@ -606,7 +605,8 @@ jobs:
            del(.placementConstraints) | 
            del(.compatibilities) | 
            del(.registeredAt) | 
-           del(.registeredBy)')
+           del(.registeredBy) |
+           del(.taskRoleArn)')
         
         # Validate the new task definition JSON
         if ! echo "$NEW_TASK_DEFINITION" | jq empty 2>/dev/null; then
