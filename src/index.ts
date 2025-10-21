@@ -37,7 +37,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'healthy',
     service: 'devopscanvas-finops',
@@ -47,7 +47,7 @@ app.get('/health', (req, res) => {
 });
 
 // Root endpoint
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.json({
     message: 'DevOpsCanvas FinOps Services',
     version: '2.2.0',
@@ -62,21 +62,21 @@ app.get('/', (req, res) => {
 });
 
 // Cost analysis endpoints
-app.get('/api/costs', (req, res) => {
+app.get('/api/costs', (_req, res) => {
   res.json({
     message: 'Cost analysis endpoint',
     status: 'coming soon'
   });
 });
 
-app.get('/api/recommendations', (req, res) => {
+app.get('/api/recommendations', (_req, res) => {
   res.json({
     message: 'Cost optimization recommendations',
     status: 'coming soon'
   });
 });
 
-app.get('/api/reports', (req, res) => {
+app.get('/api/reports', (_req, res) => {
   res.json({
     message: 'Cost reports and analytics',
     status: 'coming soon'
@@ -84,7 +84,7 @@ app.get('/api/reports', (req, res) => {
 });
 
 // Error handling middleware
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logger.error('Unhandled error:', err);
   res.status(500).json({
     error: 'Internal server error',
