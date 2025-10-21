@@ -898,11 +898,11 @@ jobs:
     - name: Create GitOps Pull Request
       if: steps.check-gitops.outputs.gitops-available == 'true'
       uses: peter-evans/create-pull-request@v5
+      continue-on-error: true
       with:
         path: gitops
         token: ${{ secrets.GITHUB_TOKEN }}
         commit-message: "feat: update devopscanvas-finops to ${{ needs.build-and-push.outputs.image-tag }}"
-      continue-on-error: true
         title: "🚀 Update DevOpsCanvas FinOps to ${{ needs.build-and-push.outputs.image-tag }}"
         body: |
           ## 🚀 Automated DevOpsCanvas FinOps Update
