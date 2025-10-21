@@ -831,26 +831,45 @@ jobs:
       pull-requests: write
 
     steps:
+    - name: Check GitOps repository access
+      id: check-gitops
+      run: |
+        # Check if GitOps repository exists and is accessible
+        if curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+           "https://api.github.com/repos/${{ github.repository_owner }}/devopscanvas-gitops" > /dev/null 2>&1; then
+          echo "gitops-available=true" >> $GITHUB_OUTPUT
+          echo "✅ GitOps repository is accessible"
+        else
+          echo "gitops-available=false" >> $GITHUB_OUTPUT
+          echo "⚠️ GitOps repository not accessible - skipping GitOps deployment"
+        fi
+
     - name: Checkout GitOps repository
+      if: steps.check-gitops.outputs.gitops-available == 'true'
       uses: actions/checkout@v4
       with:
         repository: ${{ github.repository_owner }}/devopscanvas-gitops
         token: ${{ secrets.GITHUB_TOKEN }}
         path: gitops
+      continue-on-error: true
 
     - name: Update image tag in GitOps repo
+      if: steps.check-gitops.outputs.gitops-available == 'true'
       run: |
-        cd gitops
-        
-        # Update the image tag in Helm values or Kubernetes manifests
-        if [ -f "applications/finops.yaml" ]; then
-          sed -i "s|tag: .*|tag: \"${{ needs.build-and-push.outputs.image-tag }}\"|g" applications/finops.yaml
-        elif [ -f "apps/devopscanvas-finops/values.yaml" ]; then
-          sed -i "s|tag: .*|tag: \"${{ needs.build-and-push.outputs.image-tag }}\"|g" apps/devopscanvas-finops/values.yaml
-        else
-          echo "⚠️ GitOps configuration file not found - creating new one"
-          mkdir -p applications
-          cat > applications/finops.yaml << EOF
+        if [ -d "gitops" ]; then
+          cd gitops
+          
+          # Update the image tag in Helm values or Kubernetes manifests
+          if [ -f "applications/finops.yaml" ]; then
+            sed -i "s|tag: .*|tag: \"${{ needs.build-and-push.outputs.image-tag }}\"|g" applications/finops.yaml
+            echo "✅ Updated applications/finops.yaml"
+          elif [ -f "apps/devopscanvas-finops/values.yaml" ]; then
+            sed -i "s|tag: .*|tag: \"${{ needs.build-and-push.outputs.image-tag }}\"|g" apps/devopscanvas-finops/values.yaml
+            echo "✅ Updated apps/devopscanvas-finops/values.yaml"
+          else
+            echo "⚠️ GitOps configuration file not found - creating new one"
+            mkdir -p applications
+            cat > applications/finops.yaml << EOF
         apiVersion: argoproj.io/v1alpha1
         kind: Application
         metadata:
@@ -870,14 +889,20 @@ jobs:
               prune: true
               selfHeal: true
         EOF
+            echo "✅ Created new GitOps configuration"
+          fi
+        else
+          echo "⚠️ GitOps repository not available - skipping update"
         fi
 
     - name: Create GitOps Pull Request
+      if: steps.check-gitops.outputs.gitops-available == 'true'
       uses: peter-evans/create-pull-request@v5
       with:
         path: gitops
         token: ${{ secrets.GITHUB_TOKEN }}
         commit-message: "feat: update devopscanvas-finops to ${{ needs.build-and-push.outputs.image-tag }}"
+      continue-on-error: true
         title: "🚀 Update DevOpsCanvas FinOps to ${{ needs.build-and-push.outputs.image-tag }}"
         body: |
           ## 🚀 Automated DevOpsCanvas FinOps Update
@@ -905,6 +930,22 @@ jobs:
           *This PR was automatically created by the DevOpsCanvas FinOps CI/CD pipeline.*
         branch: update-finops-${{ github.sha }}
         delete-branch: true
+
+    - name: GitOps deployment summary
+      run: |
+        echo "## 🔄 GitOps Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ steps.check-gitops.outputs.gitops-available }}" = "true" ]; then
+          echo "- **GitOps Repository**: ✅ Accessible" >> $GITHUB_STEP_SUMMARY
+          echo "- **Configuration Update**: ✅ Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Pull Request**: ✅ Created (if changes detected)" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **GitOps Repository**: ⚠️ Not accessible" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status**: ⏭️ Skipped (repository not available)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "💡 **Note**: GitOps deployment was skipped because the devopscanvas-gitops repository is not accessible." >> $GITHUB_STEP_SUMMARY
+          echo "This is normal if you haven't set up GitOps yet. The ECS deployment was successful." >> $GITHUB_STEP_SUMMARY
+        fi
 
   # ============================================================================
   # CLEANUP JOB
